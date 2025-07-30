@@ -18,6 +18,12 @@ FILTERS = {
     "diode_clipper": rubber_zener_filter
 }
 
+NOISES = {
+    "none": lambda length: np.zeros(length),
+    "white": lambda length: np.random.normal(0, 1, length),
+    "pink": lambda length,: pink_noise(length),
+    "brownian": lambda length: brownian_noise(length)
+}
 
 
 
@@ -80,8 +86,8 @@ def get_audio_data():
         time = np.linspace(0, len(data) / samplerate, num=len(data))
 
         return jsonify({
-            "x": time.tolist(),
-            "y": data.tolist()
+            "x": np.round(time,2).tolist(),
+            "y": np.round(data,2).tolist()
         })
 
     except Exception as e:
@@ -89,11 +95,8 @@ def get_audio_data():
 
 
 
-@app.route('/get_filter_data', methods=['GET'])
-def get_filter_data():
-    filter_type = request.args.get("filtre")
-    threshold = float(request.args.get("threshold", 0))
-
+def get_filter_profil_data(threshold, filter_type):
+    
 
     if filter_type not in FILTERS:
         return jsonify({"error": "Invalid filter type"}), 400
@@ -105,20 +108,10 @@ def get_filter_data():
 
     x = np.round(x, 2).tolist()  # Arrondir les valeurs de x
     y = np.round(y, 2).tolist()  # Arrondir les valeurs de y
-    return jsonify({
-        "x": x,
-        "y": y
-    })
+    return x,y
 
-
-@app.route('/get_filtered_signal', methods=['GET'])
-def get_filtered_signal():
-    filename = request.args.get("filename")
-    filter_type = request.args.get("filtre")
-    threshold = float(request.args.get("threshold", 0))
-    noise = request.args.get("noise", "none")
-    amplitude = float(request.args.get("amplitude", 0))
-
+def get_filtered_signal(filename=None, filter_type=None, threshold=0, noise="none", amplitude=0):
+    
     if not filename or not filter_type:
         return jsonify({"error": "Missing parameters"}), 400
 
@@ -130,17 +123,53 @@ def get_filtered_signal():
         data, samplerate = lb.load(filepath, sr=None, mono=True)
 
         # Appliquer le filtre
-        filtered_data = FILTERS[filter_type](data, threshold)
+        data = data/ np.max(np.abs(data))  # Normaliser le signal
+        
+        if(noise):
+            noise_signal = NOISES[noise](len(data), samplerate)
+        else:
+            noise_signal = data
+        filtered_data = FILTERS[filter_type](noise_signal*amplitude, threshold)
 
-        return jsonify({
-            "x": np.linspace(0, len(filtered_data) / samplerate, num=len(filtered_data)).tolist(),
-            "y": filtered_data.tolist()
-        })
+        x =  np.linspace(0, len(filtered_data) / samplerate, num=len(filtered_data))
+        y = filtered_data
+        return x,y
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/get_graph_data", methods=["GET"])
+def get_graph_data():
 
+    filter_type = request.args.get("filtre")
+    threshold = float(request.args.get("threshold", 0))
+    noise = request.args.get("noise", "none")
+    amplitude = float(request.args.get("amplitude", 0))
+    filename = request.args.get("filename")
+    filter_type = request.args.get("filtre")
 
+    print(f"Received parameters: filter_type={filter_type}, threshold={threshold}, noise={noise}, amplitude={amplitude}, filename={filename}")
+
+    
+        
+    xf,yf = get_filtered_signal(filename, filter_type, threshold, noise, amplitude)
+
+    if isinstance(xf, dict) and "error" in xf:
+        return xf
+    # Obtenir les données du profil du filtre
+
+    xp,yp = get_filter_profil_data(threshold, filter_type)
+    if isinstance(xp, dict) and "error" in xp:
+        return xp
+
+    return jsonify({
+        "xp": np.round(xp,2).tolist(),
+        "yp": np.round(yp,2).tolist(),
+        "xf": np.round(xf,2).tolist(),
+        "yf": np.round(yf,2).tolist()
+    })
+
+   
+  
 if __name__ == '__main__':
     app.run(debug=True)

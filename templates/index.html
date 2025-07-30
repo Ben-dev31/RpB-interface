@@ -30,23 +30,16 @@
                     <source src="{{ url_for('uploaded_file', filename=filename) }}" type="audio/wav">
                     Votre navigateur ne supporte pas la balise audio.
                 </audio>
-                <!--
-                <div class="audio-player">
-                    <button class="play-btn" id="playBtn">▶</button>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                    <span class="time-display">0:00 / 0:08</span>
-                    <input type="range" class="volume-control" min="0" max="100" value="50">
-                </div> -->
+                
 
                 <!-- Contrôles -->
+                
                 <div class="control-group">
-                    <label>parole éco...</label>
-                    <select class="dropdown">
-                        <option>Mais je suis fier du travail que n</option>
-                    </select>
-                    <button class="btn" style="margin-top: 10px;">Nouveau</button>
+                    <label>Amplitude du signal:</label>
+                    <div class="slider-group">
+                        <input type="range" class="slider" id="VolumeSlider" min="0" max="100" step="0.01" value="50">
+                        <span class="slider-value" id="amplitudeSignalValue">1.04</span>%
+                    </div>
                 </div>
 
                 <div class="control-group">
@@ -58,6 +51,10 @@
                         </div>
                         <div class="radio-item">
                             <input type="radio" name="filter" value="diode">
+                            <label>diode</label>
+                        </div>
+                        <div class="radio-item">
+                            <input type="radio" name="filter" value="bistable">
                             <label>diode</label>
                         </div>
                     </div>
@@ -73,23 +70,20 @@
             </div>
 
             <div class="right-controls">
-                <button class="btn">Mauvaise réponse</button>
+                
                 
                 <div class="control-group" style="margin-top: 20px;">
                     <label>Bruits:</label>
                     <div class="radio-group">
-                        <div class="radio-item">
-                            <input type="radio" name="noise" value="white" checked>
-                            <label>White</label>
-                        </div>
-                        <div class="radio-item">
-                            <input type="radio" name="noise" value="gaussian">
-                            <label>Gaussian white</label>
-                        </div>
-                        <div class="radio-item">
-                            <input type="radio" name="noise" value="perlin">
-                            <label>Perlin</label>
-                        </div>
+                         <select class="dropdown" id="noiseDropdown">
+                            <option value="none" selected>None</option>
+                            <option value="white">White</option>
+                            <option value="pink">Pink</option>
+                            <option value="brownian">Brownian</option>
+                            <option value="perlin">Perlin</option>
+                        </select>
+                        
+
                     </div>
                 </div>
 
