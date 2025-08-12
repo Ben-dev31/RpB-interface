@@ -3,126 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interface d'Analyse Audio</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Stochastic Resonator</title>
+    <link rel="stylesheet" href="./../static/css/style.css">
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4">Interface Audio + Filtrage</h1>
+        <div class="title">
+            Stochastic Resonator
+        </div>
 
-        {% if not filename %}
-        <!-- Upload audio -->
-        <form method="POST" enctype="multipart/form-data" action="/upload">
-            <div class="mb-3">
-                <label for="file" class="form-label">Choisir un fichier audio</label>
-                <input class="form-control" type="file" id="file" name="file" accept="audio/*">
+        <h2>Type d'entrée</h2>
+        <div class="input-section">
+            
+            <div class="input-option">
+                <input type="radio" id="microphone" name="input-type" value="microphone" checked>
+                <label for="microphone">Microphone</label>
             </div>
-            <button type="submit" class="btn btn-primary">Envoyer</button>
-        </form>
+            <div class="input-option">
+                <input type="radio" id="file" name="input-type" value="file">
+                <label for="file">Fichier Audio</label>
+            </div>
+            <div class="input-option">
+                <input type="radio" id="jack" name="input-type" value="jack">
+                <label for="jack">Jack</label>
+            </div>
+        </div>
 
-        <!-- Affichage du nom du fichier -->
-        {% else %}
-        <div class="controls-section">
-            <div class="left-controls">
-                <!-- Lecteur audio -->
-                <audio class="audio-player" id="audioPlayer" controls>
-                    <source src="{{ url_for('uploaded_file', filename=filename) }}" type="audio/wav">
-                    Votre navigateur ne supporte pas la balise audio.
-                </audio>
+        <div class="controls">
+            <div class="control-group">
+                <button id="startBtn" class="btn">Start</button>
+                <button id="stopBtn" class="btn stop" style="display: none;">Stop</button>
                 
+            </div>
 
-                <!-- Contrôles -->
-                
-                <div class="control-group">
-                    <label>Amplitude du signal:</label>
-                    <div class="slider-group">
-                        <input type="range" class="slider" id="VolumeSlider" min="0" max="100" step="0.01" value="50">
-                        <span class="slider-value" id="amplitudeSignalValue">1.04</span>%
-                    </div>
-                </div>
+            <div class="control-group">
+                <input type="file" id="audioFile" class="file-input" accept="audio/*">
+                <label for="audioFile" id="fileLabel" class="file-label" style="display: none;">
+                    Input File
+                </label>
+            </div>
+        </div>
 
-                <div class="control-group">
-                    <label>Filtres:</label>
-                    <div class="radio-group">
-                        <div class="radio-item">
-                            <input type="radio" name="filter" value="diode_clipper" checked>
-                            <label>Diode clipper</label>
-                        </div>
-                        <div class="radio-item">
-                            <input type="radio" name="filter" value="diode">
-                            <label>diode</label>
-                        </div>
-                        <div class="radio-item">
-                            <input type="radio" name="filter" value="bistable">
-                            <label>diode</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <label>Threshold:</label>
-                    <div class="slider-group">
-                        <input type="range" class="slider" id="thresholdSlider" min="0" max="2" step="0.01" value="1.00">
-                        <span class="slider-value" id="thresholdValue">1.00</span>
-                    </div>
+        <div class="controls">
+            <div class="control-group">
+                <div class="select-container">
+                    <label class="select-label">Filtre</label>
+                    <select id="filterSelect">
+                        <option value="passband">Passe-bande</option>
+                        <option value="lowpass">Passe-bas</option>
+                        <option value="highpass">Passe-haut</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="right-controls">
-                
-                
-                <div class="control-group" style="margin-top: 20px;">
-                    <label>Bruits:</label>
-                    <div class="radio-group">
-                         <select class="dropdown" id="noiseDropdown">
-                            <option value="none" selected>None</option>
-                            <option value="white">White</option>
-                            <option value="pink">Pink</option>
-                            <option value="brownian">Brownian</option>
-                            <option value="perlin">Perlin</option>
-                        </select>
-                        
-
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <label>Amplitude:</label>
-                    <div class="slider-group">
-                        <input type="range" class="slider" id="amplitudeSlider" min="0" max="2" step="0.01" value="1.04">
-                        <span class="slider-value" id="amplitudeValue">1.04</span>
-                    </div>
+            <div class="control-group">
+                <div class="select-container">
+                    <label class="select-label">Bruit</label>
+                    <select id="noiseSelect">
+                        <option value="none">Aucun</option>
+                        <option value="white">Bruit blanc</option>
+                        <option value="pink">Bruit rose</option>
+                        <option value="brown">Bruit rouge/brun</option>
+                        <option value="blue">Bruit bleu</option>
+                    </select>
                 </div>
             </div>
         </div>
 
-        <!-- Graphiques -->
-        <div class="charts-section">
-            <div class="chart-container">
-                <div class="chart-title">Profil du filtre</div>
-                <canvas class="chart-canvas" id="filterChart" height="300"></canvas>
+        <div class="controls">
+            <div class="control-group">
+                <div class="vertical-slider-container">
+                    <label class="slider-label">Gain</label>
+                    <input type="range" id="gainSlider" class="vertical-slider" min="0" max="100" value="30" orient="vertical">
+                    <span id="gainValue" class="slider-value">30</span>
+                </div>
             </div>
-            <div class="chart-container">
-                <div class="chart-title">Signal pur</div>
-                <canvas class="chart-canvas" id="pureSignalChart" height="300"></canvas>
+
+            <div class="control-group">
+                <div class="slider-container">
+                    <label class="slider-label">Fréquence de coupure</label>
+                    <input type="range" id="frequencySlider" class="slider" min="20" max="20000" value="1000">
+                    <span id="frequencyValue" class="slider-value">1000 Hz</span>
+                </div>
             </div>
-            <div class="chart-container">
-                <div class="chart-title">Signal après filtre</div>
-                <canvas class="chart-canvas" id="filteredSignalChart" height="300"></canvas>
-            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="audioCanvas"></canvas>
+            <div id="status" class="status">Prêt à démarrer</div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    <script>
-        const filename = "{{ filename }}";
-        if (filename) {
-           
-            loadAudioChart(filename);
-        }
+    <script src="./../static/js/script.js"></script>
+        
     </script>
-    {% endif %}
-
 </body>
 </html>
