@@ -1,6 +1,7 @@
 // Variables globales
 let pureSignalData = [];
 let gfilename = null;
+let debounceTimeout = null;
 
 // Récupération des éléments DOM
 const thresholdSlider = document.getElementById('thresholdSlider');
@@ -57,7 +58,40 @@ function updateSliderValue(slider, valueElem) {
     valueElem.textContent = parseFloat(slider.value).toFixed(2);
 }
 
-// Chargement et affichage du signal audio
+// Debounce pour éviter les appels multiples
+function debounceUpdateAllCharts() {
+    if (debounceTimeout) clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(updateAllCharts, 500);
+}
+
+// Fonction unique pour mettre à jour tous les graphiques depuis le serveur
+async function updateAllCharts() {
+    const filterType = document.querySelector('input[name="filter"]:checked').value;
+    const threshold = parseFloat(thresholdSlider.value);
+    const amplitude = parseFloat(amplitudeSlider.value);
+    const noise = noiseSelector.value;
+    if (!gfilename) return;
+
+    try {
+        const audioRes = await fetch(`/get_graph_data?filename=${gfilename}&filtre=${filterType}&threshold=${threshold}&amplitude=${amplitude}&noise=${noise}`);
+        const Data = await audioRes.json();
+        if (!Data || !Data.xp || !Data.yf) throw new Error("Données audio invalides");
+
+        // Profil du filtre
+        filterChart.data.labels = Data.xp;
+        filterChart.data.datasets[0].data = Data.yp;
+        filterChart.update('none');
+
+        // Signal filtré
+        filteredSignalChart.data.labels = Data.xf;
+        filteredSignalChart.data.datasets[0].data = Data.yf;
+        filteredSignalChart.update('none');
+    } catch (err) {
+        console.error("Erreur lors de la mise à jour des graphiques :", err);
+    }
+}
+
+// Chargement et affichage du signal audio (appelé une seule fois)
 async function loadAudioChart(filename) {
     gfilename = filename;
     try {
@@ -68,105 +102,38 @@ async function loadAudioChart(filename) {
         pureSignalChart.data.labels = data.x;
         pureSignalChart.data.datasets[0].data = data.y;
         pureSignalChart.update('none');
-        updateCharts();
+        updateSliderValue(amplitudeSlider, amplitudeValue);
+        updateSliderValue(thresholdSlider, thresholdValue);
+        updateSliderValue(volumeSlider, volumeSignal);
+        updateAllCharts();
     } catch (err) {
         console.error("Erreur chargement audio :", err);
-    }
-}
-
-// Mise à jour du graphique du filtre
-async function updateProfileChart() {
-    const filterType = document.querySelector('input[name="filter"]:checked').value;
-    const threshold = parseFloat(thresholdSlider.value);
-    try {
-        const response = await fetch(`/get_filter_data?filtre=${filterType}&threshold=${threshold}`);
-        const data = await response.json();
-        if (!data || !data.x || !data.y) throw new Error("Données de filtre invalides");
-        filterChart.data.labels = data.x;
-        filterChart.data.datasets[0].data = data.y;
-        filterChart.update('none');
-    } catch (err) {
-        console.error("Erreur chargement filtre :", err);
-    }
-}
-
-// Mise à jour du signal filtré (serveur)
-async function updateFilteredSignal() {
-    const filterType = document.querySelector('input[name="filter"]:checked').value;
-    const threshold = parseFloat(thresholdSlider.value);
-    const amplitude = parseFloat(amplitudeSlider.value);
-    const noise = document.querySelector('input[name="noise"]:checked').value;
-    try {
-        const response = await fetch(`/get_filtered_signal?filtre=${filterType}&threshold=${threshold}&amplitude=${amplitude}&noise=${noise}&filename=${gfilename}`);
-        const data = await response.json();
-        if (!data || !data.x || !data.y) throw new Error("Données de signal filtré invalides");
-        filteredSignalChart.data.labels = data.x;
-        filteredSignalChart.data.datasets[0].data = data.y;
-        filteredSignalChart.update('none');
-    } catch (err) {
-        console.error("Erreur chargement signal filtré :", err);
-    }
-}
-
-// Mise à jour locale du signal filtré (si besoin)
-function updateCharts() {
-    const threshold = parseFloat(thresholdSlider.value);
-    const amplitude = parseFloat(amplitudeSlider.value);
-    // Mise à jour locale (optionnelle, dépend de ton usage)
-    const newFilteredData = pureSignalData.map(val => Math.max(-threshold/10, Math.min(threshold/10, val * amplitude * 0.8)));
-    filteredSignalChart.data.datasets[0].data = newFilteredData;
-    filteredSignalChart.update('none');
-    //updateProfileChart();
-}
-
-// Fonction unique pour mettre à jour tous les graphiques depuis le serveur
-async function updateAllCharts() {
-    const filterType = document.querySelector('input[name="filter"]:checked').value;
-    const threshold = parseFloat(thresholdSlider.value);
-    const amplitude = parseFloat(amplitudeSlider.value);
-    const noise = document.getElementById("noiseDropdown").value;
-    if (!gfilename) return;
-
-    try {
-        const audioRes = await fetch(`/get_graph_data?filename=${gfilename}&filtre=${filterType}&threshold=${threshold}&amplitude=${amplitude}&noise=${noise}&filename=${gfilename}`);
-        const Data = await audioRes.json();
-        if (!Data || !Data.xp || !Data.yf) throw new Error("Données audio invalides");
-       
-        // 2. Profil du filtre
-        filterChart.data.labels = Data.xp;
-        filterChart.data.datasets[0].data = Data.yp;
-        filterChart.update('none');
-
-        // 3. Signal filtré
-        filteredSignalChart.data.labels = Data.xf;
-        filteredSignalChart.data.datasets[0].data = Data.yf;
-        filteredSignalChart.update('none');
-    } catch (err) {
-        console.error("Erreur lors de la mise à jour des graphiques :", err);
     }
 }
 
 // Événements sliders et radios
 thresholdSlider.addEventListener('input', () => {
     updateSliderValue(thresholdSlider, thresholdValue);
-    updateAllCharts();
+    debounceUpdateAllCharts();
 });
 amplitudeSlider.addEventListener('input', () => {
     updateSliderValue(amplitudeSlider, amplitudeValue);
-    updateAllCharts();
+    debounceUpdateAllCharts();
 });
 volumeSlider.addEventListener('input', () => {
     updateSliderValue(volumeSlider, volumeSignal);
-    updateAllCharts();
+    // Pas besoin de recharger tous les graphiques ici si ce n'est que pour l'affichage volume
 });
 
 filterRadios.forEach(radio => radio.addEventListener('change', updateAllCharts));
 noiseSelector.addEventListener('change', updateAllCharts);
 
 // Exporte la fonction pour l'appel initial
+window.loadAudioChart = loadAudioChart;
 
-document.addEventListener('DOMContentLoaded', () => {// Récupération du nom de fichier depuis le template
-
+document.addEventListener('DOMContentLoaded', () => {
+    updateSliderValue(amplitudeSlider, amplitudeValue);
+    updateSliderValue(thresholdSlider, thresholdValue);
+    updateSliderValue(volumeSlider, volumeSignal);
     updateAllCharts();
-    
 });
