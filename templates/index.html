@@ -12,7 +12,7 @@
             Stochastic Resonator
         </div>
 
-        <h2>Type d'entrée</h2>
+        <h3>Type d'entrée</h3>
         <div class="input-section">
             
             <div class="input-option">
@@ -44,14 +44,18 @@
             </div>
         </div>
 
+        <div class="horizontal-separator"></div>
+
         <div class="controls">
             <div class="control-group">
                 <div class="select-container">
                     <label class="select-label">Filtre</label>
                     <select id="filterSelect">
-                        <option value="passband">Passe-bande</option>
-                        <option value="lowpass">Passe-bas</option>
-                        <option value="highpass">Passe-haut</option>
+                        <option value="none">Aucun</option>
+                        <option value="diode">Diode</option>
+                        <option value="diode_clipper">Ruber Zener</option>
+                        <option value="bistable">Bistable</option>
+                        
                     </select>
                 </div>
             </div>
@@ -64,7 +68,8 @@
                         <option value="white">Bruit blanc</option>
                         <option value="pink">Bruit rose</option>
                         <option value="brown">Bruit rouge/brun</option>
-                        <option value="blue">Bruit bleu</option>
+                        <option value="perlin">Perlin</option>
+                        <option value="velvet">Velvet</option>
                     </select>
                 </div>
             </div>
@@ -73,29 +78,35 @@
         <div class="controls">
             <div class="control-group">
                 <div class="vertical-slider-container">
-                    <label class="slider-label">Gain</label>
-                    <input type="range" id="gainSlider" class="vertical-slider" min="0" max="100" value="30" orient="vertical">
-                    <span id="gainValue" class="slider-value">30</span>
+                    <label class="slider-label">Seuil</label>
+                    <input type="range" id="thresholdSlider" class="vertical-slider" min="0" max="100" value="30" orient="vertical">
+                    <span id="thresholdValue" class="slider-value">30</span>
                 </div>
             </div>
 
             <div class="control-group">
-                <div class="slider-container">
-                    <label class="slider-label">Fréquence de coupure</label>
-                    <input type="range" id="frequencySlider" class="slider" min="20" max="20000" value="1000">
-                    <span id="frequencyValue" class="slider-value">1000 Hz</span>
+                <div class="vertical-slider-container">
+                    <label class="slider-label">Amplitude</label>
+                    <input type="range" id="noiseSlider" class="vertical-slider" min="0" max="100" value="0" orient="vertical">
+                    <span id="noiseAmpl" class="slider-value">0 %</span>
                 </div>
             </div>
         </div>
+
+        <div class="horizontal-separator"></div>
 
         <div class="canvas-container">
             <canvas id="audioCanvas"></canvas>
             <div id="status" class="status">Prêt à démarrer</div>
         </div>
+
+        <audio id="processedAudio" controls style="width:100%;margin-top:1em;display:none"></audio>
+        <button id="downloadBtn" style="display:none">Télécharger le signal traité</button>
     </div>
 
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="./../static/js/script.js"></script>
-        
-    </script>
+
+
 </body>
 </html>

@@ -1,14 +1,10 @@
-let audioContext;
+let audioContext = new (window.AudioContext || window.webkitAudioContext)();
 let analyser;
-let microphone;
-let dataArray;
-let animationId;
-let isRecording = false;
-let audioElement;
 let biquadFilter;
 let gainNode;
+let audioElement;
 let noiseBuffer;
-let inputType = 'microphone'; // Default input type
+let inputType = 'microphone';
 
 const canvas = document.getElementById('audioCanvas');
 const ctx = canvas.getContext('2d');
@@ -17,75 +13,118 @@ const stopBtn = document.getElementById('stopBtn');
 const status = document.getElementById('status');
 const audioFile = document.getElementById('audioFile');
 const fileLabel = document.getElementById('fileLabel');
-
-// Controls
-
 const filterSelect = document.getElementById('filterSelect');
 const noiseSelect = document.getElementById('noiseSelect');
-const gainSlider = document.getElementById('gainSlider');
-const frequencySlider = document.getElementById('frequencySlider');
-const gainValue = document.getElementById('gainValue');
-const frequencyValue = document.getElementById('frequencyValue');
-
-// Input type
+const gainSlider = document.getElementById('thresholdSlider');
+const frequencySlider = document.getElementById('noiseSlider');
+const thresholdValue = document.getElementById('thresholdValue');
+const noiseValue = document.getElementById('noiseAmpl');
 const microphoneRadio = document.getElementById('microphone');
 const fileRadio = document.getElementById('file');
 const jackRadio = document.getElementById('jack');
+const processedAudio = document.getElementById('processedAudio');
+const downloadBtn = document.getElementById('downloadBtn');
 
-// Set canvas size
+// --- STREAMING SOCKET.IO ---
+let socket = io();
+let audioQueue = [];
+let playing = false;
+
+socket.on('audio_chunk', (data) => {
+    // data est un ArrayBuffer (raw float32)
+    audioQueue.push(data);
+    if (!playing) playNextChunk();
+});
+
+socket.on('stream_end', () => {
+    status.textContent = "Streaming terminé.";
+    playing = false;
+});
+
+function playNextChunk() {
+    if (audioQueue.length === 0) {
+        playing = false;
+        return;
+    }
+    playing = true;
+    let chunk = audioQueue.shift();
+    // Convertit le chunk en Float32Array
+    let floatArray = new Float32Array(chunk.byteLength / 4);
+    let view = new DataView(chunk);
+    for (let i = 0; i < floatArray.length; i++) {
+        floatArray[i] = view.getFloat32(i * 4, true);
+    }
+    let buffer = audioContext.createBuffer(1, floatArray.length, 44100);
+    buffer.copyToChannel(floatArray, 0);
+    drawWaveformFromBuffer(buffer); // Affiche la waveform du chunk courant
+    let source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioContext.destination);
+    source.onended = playNextChunk;
+    source.start();
+}
+
+// Démarre le streaming
+function startStreaming() {
+    audioQueue = [];
+    playing = false;
+    status.textContent = "Streaming en cours...";
+    // Récupère les paramètres utilisateur
+    const inputType = document.querySelector('input[name="input-type"]:checked').value;
+    const filter = filterSelect.value;
+    const noise = noiseSelect.value;
+    const threshold = gainSlider.value;
+    const amplitude = frequencySlider.value;
+    let params = {
+        input_type: inputType,
+        filter: filter,
+        noise: noise,
+        threshold: threshold,
+        amplitude: amplitude
+    };
+    socket.emit('start_stream', params);
+}
+
+// --- FIN STREAMING ---
+
+// Resize canvas to fit container
 function resizeCanvas() {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 }
-
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-// Update slider values
-gainSlider.addEventListener('input', () => {
-    gainValue.textContent = gainSlider.value;
-    if (gainNode) {
-        gainNode.gain.value = gainSlider.value / 50; // Scale 0-100 to 0-2
-    }
-});
-
-frequencySlider.addEventListener('input', () => {
-    const freq = frequencySlider.value;
-    frequencyValue.textContent = freq + ' Hz';
-    if (biquadFilter) {
-        biquadFilter.frequency.value = freq;
-    }
-});
-
-// Filter type change
-filterSelect.addEventListener('change', () => {
-    if (biquadFilter) {
-        const filterType = filterSelect.value;
-        switch(filterType) {
-            case 'lowpass':
-                biquadFilter.type = 'lowpass';
-                break;
-            case 'highpass':
-                biquadFilter.type = 'highpass';
-                break;
-            case 'passband':
-                biquadFilter.type = 'bandpass';
-                break;
+// Draw waveform from decoded audio buffer
+function drawWaveformFromBuffer(audioBuffer) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const data = audioBuffer.getChannelData(0);
+    const step = Math.ceil(data.length / canvas.width);
+    const amp = canvas.height / 2;
+    ctx.beginPath();
+    ctx.moveTo(0, amp);
+    for (let i = 0; i < canvas.width; i++) {
+        let min = 1.0, max = -1.0;
+        for (let j = 0; j < step; j++) {
+            const datum = data[(i * step) + j] || 0;
+            if (datum < min) min = datum;
+            if (datum > max) max = datum;
         }
+        ctx.lineTo(i, (1 + min) * amp);
     }
-});
+    ctx.strokeStyle = "#00ff99";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
 
-// Input type changes
-
-
-// Radio button sync with select
+// Handle input type selection
 microphoneRadio.addEventListener('change', () => {
     if (microphoneRadio.checked) {
         inputType = 'microphone';
+        status.textContent = 'Microphone activé';
         fileLabel.style.display = 'none';
     }
 });
-
 fileRadio.addEventListener('change', () => {
     if (fileRadio.checked) {
         inputType = 'file';
@@ -93,7 +132,6 @@ fileRadio.addEventListener('change', () => {
         fileLabel.style.display = 'inline-block';
     }
 });
-
 jackRadio.addEventListener('change', () => {
     if (jackRadio.checked) {
         inputType = 'jack';
@@ -102,6 +140,7 @@ jackRadio.addEventListener('change', () => {
     }
 });
 
+// Handle file selection
 audioFile.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -115,224 +154,20 @@ audioFile.addEventListener('change', (e) => {
     }
 });
 
-function setupAudioContext() {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    
-    // Create audio processing nodes
-    biquadFilter = audioContext.createBiquadFilter();
-    gainNode = audioContext.createGain();
-    
-    // Set initial filter settings
-    biquadFilter.type = filterSelect.value === 'passband' ? 'bandpass' : filterSelect.value;
-    biquadFilter.frequency.value = frequencySlider.value;
-    biquadFilter.Q.value = 1;
-    
-    // Set initial gain
-    gainNode.gain.value = gainSlider.value / 50;
-}
-
-function generateNoise() {
-    const noiseType = noiseSelect.value;
-    if (noiseType === 'none') return null;
-    
-    const bufferSize = audioContext.sampleRate * 2;
-    noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    
-    switch(noiseType) {
-        case 'white':
-            for (let i = 0; i < bufferSize; i++) {
-                output[i] = Math.random() * 2 - 1;
-            }
-            break;
-        case 'pink':
-            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-            for (let i = 0; i < bufferSize; i++) {
-                const white = Math.random() * 2 - 1;
-                b0 = 0.99886 * b0 + white * 0.0555179;
-                b1 = 0.99332 * b1 + white * 0.0750759;
-                b2 = 0.96900 * b2 + white * 0.1538520;
-                b3 = 0.86650 * b3 + white * 0.3104856;
-                b4 = 0.55000 * b4 + white * 0.5329522;
-                b5 = -0.7616 * b5 - white * 0.0168980;
-                output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-                output[i] *= 0.11;
-                b6 = white * 0.115926;
-            }
-            break;
-        case 'brown':
-            let lastOut = 0;
-            for (let i = 0; i < bufferSize; i++) {
-                const white = Math.random() * 2 - 1;
-                output[i] = (lastOut + (0.02 * white)) / 1.02;
-                lastOut = output[i];
-                output[i] *= 3.5;
-            }
-            break;
-        case 'blue':
-            let lastValue = 0;
-            for (let i = 0; i < bufferSize; i++) {
-                const white = Math.random() * 2 - 1;
-                output[i] = white - lastValue;
-                lastValue = white;
-                output[i] *= 0.1;
-            }
-            break;
-    }
-    
-    const noiseSource = audioContext.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.loop = true;
-    return noiseSource;
-}
-
-async function startMicrophone() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        microphone = audioContext.createMediaStreamSource(stream);
-        
-        // Connect audio chain: microphone -> filter -> gain -> analyser
-        microphone.connect(biquadFilter);
-        biquadFilter.connect(gainNode);
-        gainNode.connect(analyser);
-        
-        // Add noise if selected
-        const noiseSource = generateNoise();
-        if (noiseSource) {
-            const noiseGain = audioContext.createGain();
-            noiseGain.gain.value = 0.1;
-            noiseSource.connect(noiseGain);
-            noiseGain.connect(analyser);
-            noiseSource.start();
-        }
-        
-        return true;
-    } catch (err) {
-        console.error('Erreur d\'accès au microphone:', err);
-        status.textContent = 'Erreur: Impossible d\'accéder au microphone';
-        return false;
-    }
-}
-
-function startAudioFile() {
-    if (!audioElement) {
-        status.textContent = 'Veuillez sélectionner un fichier audio';
-        return false;
-    }
-    
-    const source = audioContext.createMediaElementSource(audioElement);
-    
-    // Connect audio chain: source -> filter -> gain -> analyser -> destination
-    source.connect(biquadFilter);
-    biquadFilter.connect(gainNode);
-    gainNode.connect(analyser);
-    analyser.connect(audioContext.destination);
-    
-    // Add noise if selected
-    const noiseSource = generateNoise();
-    if (noiseSource) {
-        const noiseGain = audioContext.createGain();
-        noiseGain.gain.value = 0.1;
-        noiseSource.connect(noiseGain);
-        noiseGain.connect(analyser);
-        noiseSource.start();
-    }
-    
-    audioElement.play();
-    return true;
-}
-
-function startJack() {
-    // Jack simulation - in a real implementation, this would connect to Jack Audio Connection Kit
-    status.textContent = 'Jack: Simulation - connecté virtuellement';
-    
-    // Create a simple oscillator for demonstration
-    const oscillator = audioContext.createOscillator();
-    oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-    oscillator.type = 'sine';
-    
-    // Connect through the same audio chain
-    oscillator.connect(biquadFilter);
-    biquadFilter.connect(gainNode);
-    gainNode.connect(analyser);
-    
-    oscillator.start();
-    return true;
-}
-
-function drawVisualization() {
-    analyser.getByteFrequencyData(dataArray);
-    
-    ctx.fillStyle = 'rgba(0, 4, 40, 0.2)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const barWidth = canvas.width / dataArray.length;
-    let x = 0;
-
-    for (let i = 0; i < dataArray.length; i++) {
-        let barHeight = dataArray[i];
-        barHeight = (barHeight / 255) * canvas.height;
-
-        const hue = (i / dataArray.length) * 360 + (Date.now() * 0.1) % 360;
-        ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
-        
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-        x += barWidth;
-    }
-
-    animationId = requestAnimationFrame(drawVisualization);
-}
-
+// Main: send parameters to server, receive and play processed audio, draw waveform
 startBtn.addEventListener('click', async () => {
-    if (!isRecording) {
-        setupAudioContext();
-        
-        let success = false;
-        
-        if (inputType === 'microphone') {
-            success = await startMicrophone();
-        } else if (inputType === 'file') {
-            success = startAudioFile();
-        } else if (inputType === 'jack') {
-            success = startJack();
-        }
-        
-        if (success) {
-            isRecording = true;
-            startBtn.style.display = 'none';
-            stopBtn.style.display = 'inline-block';
-            status.textContent = `Enregistrement en cours (${inputType})...`;
-            status.classList.add('active');
-            drawVisualization();
-        }
-    }
+    // Si tu veux le mode streaming, utilise startStreaming()
+    startStreaming();
 });
 
-stopBtn.addEventListener('click', () => {
-    if (isRecording) {
-        isRecording = false;
-        startBtn.style.display = 'inline-block';
-        stopBtn.style.display = 'none';
-        status.textContent = 'Arrêté';
-        status.classList.remove('active');
-        
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-        }
-        
-        if (audioContext) {
-            audioContext.close();
-        }
-        
-        if (audioElement) {
-            audioElement.pause();
-        }
-        
-        // Clear canvas
-        ctx.fillStyle = 'rgba(0, 4, 40, 1)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+// Download processed audio (non utilisé en streaming, mais conservé si besoin)
+downloadBtn.onclick = () => {
+    if (processedAudio.src) {
+        const a = document.createElement('a');
+        a.href = processedAudio.src;
+        a.download = 'processed_audio.wav';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
-});
+};

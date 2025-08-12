@@ -1,6 +1,6 @@
 import numpy as np
 
-def pink_noise(length):
+def pink_noise(length,sr=None):
     """
     Génère un bruit rose (pink noise) de longueur 'length'.
     """
@@ -14,7 +14,7 @@ def pink_noise(length):
     pink = pink / np.max(np.abs(pink))
     return pink
 
-def brownian_noise(length):
+def brownian_noise(length,sr=None):
     """
     Génère un bruit brownien (brownian noise) de longueur 'length'.
     """
@@ -24,3 +24,12 @@ def brownian_noise(length):
     brown = brown / np.max(np.abs(brown))
     return brown
 
+def velvet_noise(length, sr=None):
+    """
+    Génère un bruit velvet de longueur 'length'.
+    """
+    # Velvet noise est une forme de bruit rose
+    pink = pink_noise(length)
+    velvet = np.cumsum(pink)
+    velvet = velvet / np.max(np.abs(velvet))
+    return velvet
