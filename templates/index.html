@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stochastic Resonator</title>
     <link rel="stylesheet" href="./../static/css/style.css">
+    <script src="./../static/js/controls.js"></script>
 </head>
 <body>
     <div class="container">
@@ -58,6 +59,45 @@
                         
                     </select>
                 </div>
+                <div class="slider-group">
+                    <div class="vertical-slider-container">
+                        <label class="slider-label">Audio</label>
+                        <input type="range" id="VolumeSlider" class="vertical-slider" min="0" max="10" value="1" step="0.01" orient="vertical">
+                        <span id="VolumeValue" class="slider-value">1</span>
+                    </div>
+                    <div class="control-group">
+                        
+                        <div class="vertical-slider-container">
+                            <label class="slider-label">Seuil</label>
+                            <input type="range" id="thresholdSlider" class="vertical-slider" min="0" max="10" value="1" step="0.1" orient="vertical">
+                            <span id="thresholdValue" class="slider-value">1</span>
+                        </div>
+                    </div>
+                    <div class="dynamic-control-group">
+                       
+                            
+                            <div class="vertical-slider-container">
+                                <label class="slider-label">Tau</label>
+                                <input type="range" id="systemTimeSlider" class="vertical-slider" min="1" max="1000" value="0.5" step="2" orient="vertical">
+                                <span id="systemTimeValue" class="slider-value">10 Hz</span>
+                            </div>
+                       
+                            
+                            <div class="vertical-slider-container">
+                                <label class="slider-label">Xb</label>
+                                <input type="range" id="wellPosSlider" class="vertical-slider" min="0" max="10" value="1" step="0.1" orient="vertical">
+                                <span id="wellPosValue" class="slider-value">1</span>
+                            </div>
+                        
+                            
+                            <div class="vertical-slider-container">
+                                <label class="slider-label">N</label>
+                                <input type="range" id="weellNumSlider" class="vertical-slider" min="1" max="10" value="1" orient="vertical">
+                                <span id="weellNumValue" class="slider-value">1</span>
+                            </div>
+                       
+                    </div>
+                </div>
             </div>
 
             <div class="control-group">
@@ -72,27 +112,16 @@
                         <option value="velvet">Velvet</option>
                     </select>
                 </div>
-            </div>
-        </div>
 
-        <div class="controls">
-            <div class="control-group">
-                <div class="vertical-slider-container">
-                    <label class="slider-label">Seuil</label>
-                    <input type="range" id="thresholdSlider" class="vertical-slider" min="0" max="100" value="30" orient="vertical">
-                    <span id="thresholdValue" class="slider-value">30</span>
-                </div>
-            </div>
-
-            <div class="control-group">
                 <div class="vertical-slider-container">
                     <label class="slider-label">Amplitude</label>
-                    <input type="range" id="noiseSlider" class="vertical-slider" min="0" max="100" value="0" orient="vertical">
+                    <input type="range" id="noiseSlider" class="vertical-slider" min="0" max="10" value="0" step="0.01" orient="vertical">
                     <span id="noiseAmpl" class="slider-value">0 %</span>
-                </div>
+                </div> 
             </div>
         </div>
 
+        
         <div class="horizontal-separator"></div>
 
         <div class="canvas-container">

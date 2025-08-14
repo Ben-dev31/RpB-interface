@@ -50,7 +50,24 @@ h3 {
     align-items: center;
     gap: 15px;
 }
+.slider-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    justify-content: center;
 
+    gap: 30px;
+    margin-bottom: 30px;
+}
+.dynamic-control-group {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 30px;
+    width: 100%;
+    justify-content: center;
+}
 .btn {
     background: linear-gradient(45deg, #4facfe, #00f2fe);
     color: white;
@@ -156,7 +173,7 @@ h3 {
 .slider-value {
     font-weight: bold;
     color: #4facfe;
-    font-size: 1.1em;
+    font-size: 10pt;
 }
 
 .canvas-container {

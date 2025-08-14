@@ -10,15 +10,23 @@ const canvas = document.getElementById('audioCanvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
-const status = document.getElementById('status');
+const statusElement = document.getElementById('status');
 const audioFile = document.getElementById('audioFile');
 const fileLabel = document.getElementById('fileLabel');
 const filterSelect = document.getElementById('filterSelect');
 const noiseSelect = document.getElementById('noiseSelect');
-const gainSlider = document.getElementById('thresholdSlider');
-const frequencySlider = document.getElementById('noiseSlider');
+const thresholdSlider = document.getElementById('thresholdSlider');
+const noiseAmplSlider = document.getElementById('noiseSlider');
 const thresholdValue = document.getElementById('thresholdValue');
 const noiseValue = document.getElementById('noiseAmpl');
+const systemTimeSlider = document.getElementById('systemTimeSlider');
+const systemTimeValue = document.getElementById('systemTimeValue');
+const wellPosSlider = document.getElementById('wellPosSlider');
+const wellPosValue = document.getElementById('wellPosValue');
+const wellNumSlider = document.getElementById('weellNumSlider');
+const wellNumValue = document.getElementById('weellNumValue');
+const audioVolumeSlider = document.getElementById('VolumeSlider');
+const audioVolumeValue = document.getElementById('VolumeValue');
 const microphoneRadio = document.getElementById('microphone');
 const fileRadio = document.getElementById('file');
 const jackRadio = document.getElementById('jack');
@@ -37,7 +45,7 @@ socket.on('audio_chunk', (data) => {
 });
 
 socket.on('stream_end', () => {
-    status.textContent = "Streaming terminé.";
+    statusElement.textContent = "Streaming terminé.";
     playing = false;
 });
 
@@ -68,13 +76,18 @@ function playNextChunk() {
 function startStreaming() {
     audioQueue = [];
     playing = false;
-    status.textContent = "Streaming en cours...";
+    statusElement.textContent = "Streaming en cours...";
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-block';
     // Récupère les paramètres utilisateur
     const inputType = document.querySelector('input[name="input-type"]:checked').value;
     const filter = filterSelect.value;
     const noise = noiseSelect.value;
-    const threshold = gainSlider.value;
-    const amplitude = frequencySlider.value;
+    const threshold = thresholdSlider.value;
+    const amplitude = noiseAmplSlider.value;
+
     let params = {
         input_type: inputType,
         filter: filter,
@@ -82,9 +95,53 @@ function startStreaming() {
         threshold: threshold,
         amplitude: amplitude
     };
-    socket.emit('start_stream', params);
+
+    // Si entrée = fichier, inclure le fichier audio
+    if (inputType === 'file') {
+        const file = audioFile.files[0];
+        if (!file) {
+            statusElement.textContent = "Veuillez sélectionner un fichier audio.";
+            return;
+        }
+        // Utilise FormData pour envoyer le fichier
+        const formData = new FormData();
+        for (const key in params) {
+            formData.append(key, params[key]);
+        }
+        formData.append('audio_file', file);
+
+        // Utilise fetch pour POST le fichier, puis démarre le streaming via socket
+        fetch('/upload_stream_file', {
+            method: 'POST',
+            body: formData
+        }).then(response => response.json())
+          .then(result => {
+              // On suppose que le serveur retourne un nom de fichier temporaire
+              params.filename = result.filename;
+              socket.emit('start_stream', params);
+          }).catch(() => {
+              statusElement.textContent = "Erreur lors de l'envoi du fichier.";
+          });
+    } else {
+        socket.emit('start_stream', params);
+    }
 }
 
+stopBtn.addEventListener('click', () => {
+    socket.emit('stop_stream');
+    statusElement.textContent = "Streaming arrêté.";
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    startBtn.style.display = 'inline-block';
+    stopBtn.style.display = 'none';
+    audioQueue = [];
+    playing = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Efface le canvas
+    if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0; // Réinitialise la position de lecture
+    }   
+});
 // --- FIN STREAMING ---
 
 // Resize canvas to fit container
@@ -121,14 +178,14 @@ function drawWaveformFromBuffer(audioBuffer) {
 microphoneRadio.addEventListener('change', () => {
     if (microphoneRadio.checked) {
         inputType = 'microphone';
-        status.textContent = 'Microphone activé';
+        statusElement.textContent = 'Microphone activé';
         fileLabel.style.display = 'none';
     }
 });
 fileRadio.addEventListener('change', () => {
     if (fileRadio.checked) {
         inputType = 'file';
-        status.textContent = 'Fichier audio sélectionné';
+        statusElement.textContent = 'Fichier audio sélectionné';
         fileLabel.style.display = 'inline-block';
     }
 });
@@ -136,7 +193,7 @@ jackRadio.addEventListener('change', () => {
     if (jackRadio.checked) {
         inputType = 'jack';
         fileLabel.style.display = 'none';
-        status.textContent = 'Jack: Connectez votre périphérique Jack';
+        statusElement.textContent = 'Jack: Connectez votre périphérique Jack';
     }
 });
 
@@ -151,12 +208,14 @@ audioFile.addEventListener('change', (e) => {
             audioElement = new Audio(url);
             audioElement.loop = true;
         }
+        
     }
 });
 
 // Main: send parameters to server, receive and play processed audio, draw waveform
 startBtn.addEventListener('click', async () => {
     // Si tu veux le mode streaming, utilise startStreaming()
+    
     startStreaming();
 });
 
@@ -171,3 +230,103 @@ downloadBtn.onclick = () => {
         document.body.removeChild(a);
     }
 };
+
+thresholdSlider.addEventListener('input', () => {
+    thValue = thresholdSlider.value;
+    amplitude = noiseAmplSlider.value;
+    audioVolume = audioVolumeSlider.value;
+    tau = systemTimeSlider.value;
+    Xb = wellPosSlider.value;
+    weellNum = wellNumSlider.value;
+
+
+    socket.emit('update_parameters', {
+        threshold: thValue,
+        signalAmplitude: audioVolume,
+        tau: tau,
+        Xb: Xb, 
+        noiseAmpitude: amplitude,
+        weellNum: weellNum})
+});
+
+noiseAmplSlider.addEventListener('input', () => {
+    thValue = thresholdSlider.value;
+    amplitude = noiseAmplSlider.value;
+    audioVolume = audioVolumeSlider.value;
+    tau = systemTimeSlider.value;
+    Xb = wellPosSlider.value;
+    weellNum = wellNumSlider.value;
+
+
+    socket.emit('update_parameters', {
+        threshold: thValue,
+        signalAmplitude: audioVolume,
+        tau: tau,
+        Xb: Xb, 
+        noiseAmpitude: amplitude,
+        weellNum: weellNum})
+});
+systemTimeSlider.addEventListener('input', () => {
+    thValue = thresholdSlider.value;
+    amplitude = noiseAmplSlider.value;
+    audioVolume = audioVolumeSlider.value;
+    tau = systemTimeSlider.value;
+    Xb = wellPosSlider.value;
+    weellNum = wellNumSlider.value;
+
+
+    socket.emit('update_parameters', {
+        threshold: thValue,
+        signalAmplitude: audioVolume,
+        tau: tau,
+        Xb: Xb, 
+        noiseAmpitude: amplitude,
+        weellNum: weellNum})
+});
+
+wellPosSlider.addEventListener('input', () => {
+    thValue = thresholdSlider.value;
+    amplitude = noiseAmplSlider.value;
+    audioVolume = audioVolumeSlider.value;
+    tau = systemTimeSlider.value;
+    Xb = wellPosSlider.value;
+    weellNum = wellNumSlider.value;
+    socket.emit('update_parameters', {
+        threshold: thValue,
+        signalAmplitude: audioVolume,
+        tau: tau,
+        Xb: Xb, 
+        noiseAmpitude: amplitude,
+        weellNum: weellNum})
+});
+wellNumSlider.addEventListener('input', () => {
+    thValue = thresholdSlider.value;
+    amplitude = noiseAmplSlider.value;
+    audioVolume = audioVolumeSlider.value;
+    tau = systemTimeSlider.value;
+    Xb = wellPosSlider.value;
+    weellNum = wellNumSlider.value;
+    socket.emit('update_parameters', {
+        threshold: thValue,
+        signalAmplitude: audioVolume,
+        tau: tau,
+        Xb: Xb, 
+        noiseAmpitude: amplitude,
+        weellNum: weellNum})
+});
+audioVolumeSlider.addEventListener('input', () => {
+    thValue = thresholdSlider.value;
+    amplitude = noiseAmplSlider.value;
+    audioVolume = audioVolumeSlider.value;
+    tau = systemTimeSlider.value;
+    Xb = wellPosSlider.value;
+    weellNum = wellNumSlider.value;
+
+    socket.emit('update_parameters', {
+        threshold: thValue,
+        signalAmplitude: audioVolume,
+        tau: tau,
+        Xb: Xb, 
+        noiseAmpitude: amplitude,
+        weellNum: weellNum})
+});

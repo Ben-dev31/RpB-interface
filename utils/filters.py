@@ -27,3 +27,30 @@ def diode_filter(u:np.ndarray, v_th : float =1.5) -> np.ndarray:
     return (numpy ndarray) : tension de sortie
     '''
     return np.where(u < v_th, 0, u - v_th)
+
+def bistable_filter(signal: np.ndarray, tau: float, Xb: float, weellNum: int) -> np.ndarray:
+    """
+    Filtre bistable
+
+    Arguments:
+    signal (numpy ndarray): signal d'entrée
+    tau (float): temps de relaxation
+    Xb (float): seuil de basculement
+    weellNum (int): nombre de puits
+
+    Returns:
+    numpy ndarray: signal filtré
+    """
+    # Implémentation simplifiée du filtre bistable
+    state = 0
+    output = np.zeros_like(signal)
+    
+    for i, x in enumerate(signal):
+        if x > Xb:
+            state = 1
+        elif x < -Xb:
+            state = -1
+        
+        output[i] = state * tau
+    
+    return output
