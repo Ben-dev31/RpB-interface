@@ -93,7 +93,7 @@ def perlin_stream(size, ampl = 1,frames=None, fs = 44100, base_freq = 20.0, octa
     )
     buffer /= np.max(np.abs(buffer)) + 1e-8  # évite division par zéro
     buffer = buffer*ampl 
-    data[:] = buffer.reshape(-1, 1)
+    data[:] = buffer.reshape(-1, )
 
     return data
 

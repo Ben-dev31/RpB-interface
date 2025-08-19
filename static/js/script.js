@@ -25,13 +25,13 @@ const wellPosSlider = document.getElementById('wellPosSlider');
 const wellPosValue = document.getElementById('wellPosValue');
 const wellNumSlider = document.getElementById('weellNumSlider');
 const wellNumValue = document.getElementById('weellNumValue');
-const audioVolumeSlider = document.getElementById('VolumeSlider');
-const audioVolumeValue = document.getElementById('VolumeValue');
+const signalAmplSlider = document.getElementById('signalAmplSlider');
 const microphoneRadio = document.getElementById('microphone');
 const fileRadio = document.getElementById('file');
 const jackRadio = document.getElementById('jack');
 const processedAudio = document.getElementById('processedAudio');
 const downloadBtn = document.getElementById('downloadBtn');
+const volumeSlider = document.getElementById('VolumeSlider');
 
 // --- STREAMING SOCKET.IO ---
 let socket = io();
@@ -89,11 +89,12 @@ function startStreaming() {
     const amplitude = noiseAmplSlider.value;
 
     let params = {
-        input_type: inputType,
+        input_method: inputType,
         filter: filter,
         noise: noise,
         threshold: threshold,
         amplitude: amplitude
+  
     };
 
     // Si entrée = fichier, inclure le fichier audio
@@ -234,7 +235,7 @@ downloadBtn.onclick = () => {
 thresholdSlider.addEventListener('input', () => {
     thValue = thresholdSlider.value;
     amplitude = noiseAmplSlider.value;
-    audioVolume = audioVolumeSlider.value;
+    audioVolume = signalAmplSlider.value;
     tau = systemTimeSlider.value;
     Xb = wellPosSlider.value;
     weellNum = wellNumSlider.value;
@@ -245,14 +246,14 @@ thresholdSlider.addEventListener('input', () => {
         signalAmplitude: audioVolume,
         tau: tau,
         Xb: Xb, 
-        noiseAmpitude: amplitude,
+        noiseAmplitude: amplitude,
         weellNum: weellNum})
 });
 
 noiseAmplSlider.addEventListener('input', () => {
     thValue = thresholdSlider.value;
     amplitude = noiseAmplSlider.value;
-    audioVolume = audioVolumeSlider.value;
+    audioVolume = signalAmplSlider.value;
     tau = systemTimeSlider.value;
     Xb = wellPosSlider.value;
     weellNum = wellNumSlider.value;
@@ -263,13 +264,13 @@ noiseAmplSlider.addEventListener('input', () => {
         signalAmplitude: audioVolume,
         tau: tau,
         Xb: Xb, 
-        noiseAmpitude: amplitude,
+        noiseAmplitude: amplitude,
         weellNum: weellNum})
 });
 systemTimeSlider.addEventListener('input', () => {
     thValue = thresholdSlider.value;
     amplitude = noiseAmplSlider.value;
-    audioVolume = audioVolumeSlider.value;
+    audioVolume = signalAmplSlider.value;
     tau = systemTimeSlider.value;
     Xb = wellPosSlider.value;
     weellNum = wellNumSlider.value;
@@ -280,14 +281,14 @@ systemTimeSlider.addEventListener('input', () => {
         signalAmplitude: audioVolume,
         tau: tau,
         Xb: Xb, 
-        noiseAmpitude: amplitude,
+        noiseAmplitude: amplitude,
         weellNum: weellNum})
 });
 
 wellPosSlider.addEventListener('input', () => {
     thValue = thresholdSlider.value;
     amplitude = noiseAmplSlider.value;
-    audioVolume = audioVolumeSlider.value;
+    audioVolume = signalAmplSlider.value;
     tau = systemTimeSlider.value;
     Xb = wellPosSlider.value;
     weellNum = wellNumSlider.value;
@@ -296,13 +297,13 @@ wellPosSlider.addEventListener('input', () => {
         signalAmplitude: audioVolume,
         tau: tau,
         Xb: Xb, 
-        noiseAmpitude: amplitude,
+        noiseAmplitude: amplitude,
         weellNum: weellNum})
 });
 wellNumSlider.addEventListener('input', () => {
     thValue = thresholdSlider.value;
     amplitude = noiseAmplSlider.value;
-    audioVolume = audioVolumeSlider.value;
+    audioVolume = signalAmplSlider.value;
     tau = systemTimeSlider.value;
     Xb = wellPosSlider.value;
     weellNum = wellNumSlider.value;
@@ -311,13 +312,13 @@ wellNumSlider.addEventListener('input', () => {
         signalAmplitude: audioVolume,
         tau: tau,
         Xb: Xb, 
-        noiseAmpitude: amplitude,
+        noiseAmplitude: amplitude,
         weellNum: weellNum})
 });
-audioVolumeSlider.addEventListener('input', () => {
+signalAmplSlider.addEventListener('input', () => {
     thValue = thresholdSlider.value;
     amplitude = noiseAmplSlider.value;
-    audioVolume = audioVolumeSlider.value;
+    audioVolume = signalAmplSlider.value;
     tau = systemTimeSlider.value;
     Xb = wellPosSlider.value;
     weellNum = wellNumSlider.value;
@@ -327,6 +328,21 @@ audioVolumeSlider.addEventListener('input', () => {
         signalAmplitude: audioVolume,
         tau: tau,
         Xb: Xb, 
-        noiseAmpitude: amplitude,
+        noiseAmplitude: amplitude,
         weellNum: weellNum})
 });
+volumeSlider.addEventListener('input', () => {
+    const volume = volumeSlider.value;
+    socket.emit('update_volume', { volume: volume });
+});
+
+filterSelect.addEventListener('change', () => {
+    const filter = filterSelect.value;
+    socket.emit('update_filter', { filter: filter , threshold: thresholdSlider.value, tau: systemTimeSlider.value, Xb: wellPosSlider.value, weellNum: wellNumSlider.value });
+});
+
+noiseSelect.addEventListener('change', () => {
+    const noise = noiseSelect.value;
+    socket.emit('update_noise', { noise: noise, amplitude: noiseAmplSlider.value});
+});
+

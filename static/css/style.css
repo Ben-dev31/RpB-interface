@@ -305,3 +305,23 @@ select option {
     transition: opacity 0.2s;
     cursor: pointer;
 }
+
+.horizeontal-slider-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    width: 100%;
+}
+.horizontal-slider {
+    width: 30%;
+    height: 8px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #ddd, #fe814f);
+    outline: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    margin-left: 8px ;
+    
+}

@@ -1,7 +1,6 @@
-
 import numpy as np
 
-def rubber_zener_filter(x:np.ndarray,a :float = 2) -> np.ndarray:
+def rubber_zener_filter(x, a=2, **kwargs):
     """
     Filtre rubber zener
 
@@ -12,12 +11,13 @@ def rubber_zener_filter(x:np.ndarray,a :float = 2) -> np.ndarray:
     Returns:
     y (numpy ndarry) : données filtrées
     """
+    x = np.asarray(x).flatten()
     y = np.zeros_like(x)
-    y[x > a] = x[x > a] - a    # cas ou le signal x > a
-    y[x < -a] = x[x < -a] + a  # cas ou le signal x < a
+    y[x > a] = x[x > a] - a
+    y[x < -a] = x[x < -a] + a
     return y
 
-def diode_filter(u:np.ndarray, v_th : float =1.5) -> np.ndarray:
+def diode_filter(u, v_th=1.5, **kwargs):
     '''
     Fonction qui retourne la tension de sortie d'un diode en fonction de la tension d'entrée.
 
@@ -26,9 +26,10 @@ def diode_filter(u:np.ndarray, v_th : float =1.5) -> np.ndarray:
 
     return (numpy ndarray) : tension de sortie
     '''
+    u = np.asarray(u).flatten()
     return np.where(u < v_th, 0, u - v_th)
 
-def bistable_filter(signal: np.ndarray, tau: float, Xb: float, weellNum: int) -> np.ndarray:
+def bistable_filter(signal, tau=None, Xb=None, weellNum=None, **kwargs):
     """
     Filtre bistable
 
@@ -41,16 +42,19 @@ def bistable_filter(signal: np.ndarray, tau: float, Xb: float, weellNum: int) ->
     Returns:
     numpy ndarray: signal filtré
     """
-    # Implémentation simplifiée du filtre bistable
+    signal = np.asarray(signal).flatten()
+    if tau is None:
+        tau = kwargs.get('tau', 0.5)
+    if Xb is None:
+        Xb = kwargs.get('Xb', 1.0)
+    if weellNum is None:
+        weellNum = kwargs.get('weellNum', 1)
     state = 0
     output = np.zeros_like(signal)
-    
     for i, x in enumerate(signal):
         if x > Xb:
             state = 1
         elif x < -Xb:
             state = -1
-        
         output[i] = state * tau
-    
     return output

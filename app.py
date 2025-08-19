@@ -5,8 +5,11 @@ import soundfile as sf
 import io
 import time,os
 
+import threading
 from utils import *
 from utils.noises import pink_noise, brownian_noise, velvet_noise
+
+from utils.audio_processing import AudioStream
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -16,17 +19,19 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 FILTERS = {
+    
+    "bistable": bistable_filter,
     "diode": diode_filter,
     "diode_clipper": rubber_zener_filter,
     
 }
 
 NOISES = {
-    "none": lambda length, sr: np.zeros(length),
-    "white": lambda length, sr: np.random.normal(0, 1, length),
+    "none": lambda length, sr, **kwargs: np.zeros(length),
+    "white":white_noise,
     "pink": pink_noise,
     "brown": brownian_noise,
-    "perlin": perlin_noise,
+    "perlin": perlin_stream,
     "velvet": velvet_noise
 }
 
@@ -39,6 +44,10 @@ weellNum = 1  # Valeur par défaut du nombre de puits
 
 AUDIO = None  # Variable pour stocker l'audio en cours de traitement
 AUDIO_FILE = ''  # Variable pour stocker le fichier audio en cours de traitement
+
+stream = AudioStream(fs=44100, block_size=1024)
+stream.FILTERS = FILTERS
+stream.NOISES = NOISES
 
 @app.route('/')
 def index():
@@ -56,33 +65,21 @@ def upload_stream_file():
 
 @socketio.on('start_stream')
 def handle_stream(data):
-    global threshold, signalAmplitude, tau, Xb, weellNum, noiseAmplitude, AUDIO, AUDIO_FILE
+    global threshold, signalAmplitude, tau, Xb, weellNum, noiseAmplitude, AUDIO, AUDIO_FILE, stream
 
-    sr = 44100
-    chunk_size = 1024  # Taille du chunk en échantillons
-
-    filename = data.get('filename')
-    if not filename:
-        emit('stream_end')
-        return
-
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.isfile(filepath):
-        emit('stream_end')
-        return
-
-    # Lis le fichier audio
-    if AUDIO is None or AUDIO_FILE != filepath:
-        AUDIO, sr = sf.read(filepath)
-        if AUDIO.ndim > 1:
-            AUDIO = AUDIO[:, 0]  # mono
+    input_method = data.get('input_method', 'jack')
+    print(f"Input method: {input_method}")
+    if input_method == 'file':
+        stream.set_input_method('file')
+        filename = data.get('filename')
         
-        AUDIO = AUDIO.astype(np.float32)
-        AUDIO_FILE = filepath
-    
-    audio = AUDIO.copy()
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        stream.set_input_file(filepath)
 
-
+    else:
+        stream.set_input_method('jack')
+   
+        
     # Applique le bruit si spécifié
     noise_type = data.get('noise')
     noiseAmplitude= float(data.get('amplitude', 0.1))
@@ -90,28 +87,33 @@ def handle_stream(data):
 
     filter_type = data.get('filter')
 
-    audio = audio /np.max(np.abs(audio)) * signalAmplitude
-    
+    stream.set_filter(filter_type)
+    stream.set_noise(noise_type)
+    stream.set_parameters(
+        threshold=threshold,
+        signal_amplitude=signalAmplitude,
+        noise_amplitude=noiseAmplitude,
+        tau=tau,
+        Xb=Xb,
+        weellNum=weellNum
+    )
 
-    # Découpe et envoie par blocs
-    for i in range(0, len(audio), chunk_size):
-        chunk = audio[i:i+chunk_size]
+   
 
-        sg = signalAmplitude * chunk + noiseAmplitude * NOISES[noise_type](len(chunk), sr)
+    stream_thread = threading.Thread(target=stream.start)
+    stream_thread.daemon = True  # Allow thread to exit when main program exits
+    stream_thread.start()
+  
 
-        new_chunk = FILTERS[filter_type](sg,threshold) if filter_type != 'bistable' else bistable_filter(sg, tau, Xb, weellNum)
 
-        buf = io.BytesIO()
-        sf.write(buf, new_chunk, sr, format='RAW', subtype='FLOAT')
-        emit('audio_chunk', buf.getvalue())
-        time.sleep(chunk_size / sr)
-
-    emit('stream_end')
 
 @socketio.on('stop_stream')
 def handle_stop_stream():
+    global stream
+
+    stream.stop()
     print("Stream stopped by user")
-    emit('stream_stopped')
+    
 
 @socketio.on('update_parameters')
 def handle_update_params(data):
@@ -122,7 +124,53 @@ def handle_update_params(data):
     Xb = float(data.get('Xb', 1.0))
     weellNum = int(data.get('weellNum', 1))
     noiseAmplitude = float(data.get('noiseAmplitude', 0.1))
-    print(f"Updated parameters: threshold={threshold}, signalAmplitude={signalAmplitude}, tau={tau}, Xb={Xb}, weellNum={weellNum}")
+    print(f"Updated parameters: threshold={threshold}, signalAmplitude={signalAmplitude}, noiseAmplitude = {noiseAmplitude} tau={tau}, Xb={Xb}, weellNum={weellNum}")
+    # Met à jour les paramètres du flux audio
+    stream.set_parameters(
+        threshold=threshold,
+        signal_amplitude=signalAmplitude,
+        noise_amplitude=noiseAmplitude,
+        tau=tau,
+        Xb=Xb,
+        weellNum=weellNum   
+    )
+
+@socketio.on('update_filter')
+def handle_update_filter(data):
+    global stream
+    filter_type = data.get('filter')
+   
+    stream.set_filter(filter_type)
+    threshold = float(data.get('threshold', 1.0))
+    tau = float(data.get('tau', 0.5))
+    Xb = float(data.get('Xb', 1.0))
+    weellNum = int(data.get('weellNum', 1)) 
+    stream.set_parameters(
+        threshold=threshold,
+        tau=tau,
+        Xb=Xb,
+        weellNum=weellNum
+    )
+    print(f"Filter updated to: {filter_type}")
+
+@socketio.on('update_noise')
+def handle_update_noise(data):
+    global stream
+    noise_type = data.get('noise')
+    noiseAmplitude = float(data.get('amplitude', 0.1))
+    
+    stream.set_noise(noise_type)
+    stream.set_parameters(noise_amplitude=noiseAmplitude)
+    print(f"Noise updated to: {noise_type} with amplitude {noiseAmplitude}")
+    
+
+
+@socketio.on('update_volume')
+def handle_update_volume(data):
+    global stream
+    volume = float(data.get('volume', 100)) / 100.0
+    stream.set_volume(volume)
+    print(f"Volume updated to: {volume * 100}%")
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

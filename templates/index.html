@@ -62,8 +62,8 @@
                 <div class="slider-group">
                     <div class="vertical-slider-container">
                         <label class="slider-label">Audio</label>
-                        <input type="range" id="VolumeSlider" class="vertical-slider" min="0" max="10" value="1" step="0.01" orient="vertical">
-                        <span id="VolumeValue" class="slider-value">1</span>
+                        <input type="range" id="signalAmplSlider" class="vertical-slider" min="0" max="10" value="1" step="0.01" orient="vertical">
+                        <span id="signalAmplValue" class="slider-value">1</span>
                     </div>
                     <div class="control-group">
                         
@@ -123,6 +123,12 @@
 
         
         <div class="horizontal-separator"></div>
+
+        <div class="horizontal-slider-container">
+            <label class="slider-label">Volume</label>
+            <input type="range" id="VolumeSlider" class="horizontal-slider" min="0" max="100" value="1" step="0.1" orient="horizontal">
+            <span id="volume" class="slider-value">0 %</span>
+        </div>
 
         <div class="canvas-container">
             <canvas id="audioCanvas"></canvas>
