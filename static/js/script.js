@@ -49,6 +49,9 @@ socket.on('stream_end', () => {
     playing = false;
 });
 
+let drawCounter = 0;
+const DRAW_EVERY = 3; // N'affiche qu'un bloc sur 3
+
 function playNextChunk() {
     if (audioQueue.length === 0) {
         playing = false;
@@ -64,7 +67,13 @@ function playNextChunk() {
     }
     let buffer = audioContext.createBuffer(1, floatArray.length, 44100);
     buffer.copyToChannel(floatArray, 0);
-    drawWaveformFromBuffer(buffer); // Affiche la waveform du chunk courant
+
+    // Dessin allégé
+    drawCounter++;
+    if (drawCounter % DRAW_EVERY === 0) {
+        requestAnimationFrame(() => drawWaveformFromBuffer(buffer));
+    }
+
     let source = audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(audioContext.destination);

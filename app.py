@@ -98,6 +98,7 @@ def handle_stream(data):
         weellNum=weellNum
     )
 
+    stream.stream_state = 'running'
    
 
     stream_thread = threading.Thread(target=stream.start)

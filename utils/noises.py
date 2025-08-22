@@ -7,7 +7,7 @@ def _ensure_1d(x):
         return x[:, 0]
     return x
 
-def pink_noise(length, sr=None, **kwargs):
+def pink_noise(length,ampl=1, **kwargs):
     if isinstance(length, (tuple, list, np.ndarray)):
         if isinstance(length, (tuple, list)):
             length = length[0]
@@ -20,9 +20,9 @@ def pink_noise(length, sr=None, **kwargs):
     for i in range(2, length):
         pink[i] = b[0]*white[i] + b[1]*white[i-1] + b[2]*white[i-2] - a[1]*pink[i-1] - a[2]*pink[i-2]
     pink = pink / (np.max(np.abs(pink)) + 1e-8)
-    return pink
+    return pink*ampl
 
-def brownian_noise(length, sr=None, **kwargs):
+def brownian_noise(length,ampl=1, **kwargs):
     if isinstance(length, (tuple, list, np.ndarray)):
         if isinstance(length, (tuple, list)):
             length = length[0]
@@ -31,20 +31,22 @@ def brownian_noise(length, sr=None, **kwargs):
     white = np.random.randn(length)
     brown = np.cumsum(white)
     brown = brown / (np.max(np.abs(brown)) + 1e-8)
-    return brown
+    return brown*ampl
 
-def velvet_noise(length, sr=None, **kwargs):
+def velvet_noise(length, ampl=1, **kwargs):
     pink = pink_noise(length)
     velvet = np.cumsum(pink)
     velvet = velvet / (np.max(np.abs(velvet)) + 1e-8)
-    return velvet
+    return velvet*ampl
 
-def white_noise(length, sr=None, **kwargs):
+def white_noise(length, ampl=1, **kwargs):
     if isinstance(length, (tuple, list, np.ndarray)):
         if isinstance(length, (tuple, list)):
             length = length[0]
         else:
             length = length.shape[0]
-    return np.random.normal(0, 1, length)
+    
+    noise =  np.random.normal(0, 1, length)
+    return ampl * noise/(np.max(np.abs(noise)) + 1e-8)
 
 

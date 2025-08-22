@@ -7,12 +7,12 @@ from .noises import *
 from .filters import *
 import os 
 import librosa as lb
-
+import soundfile as sf
 
 
 
 class AudioStream:
-    def __init__(self, fs=44100, block_size=1024):
+    def __init__(self, fs=44100, block_size=4096):  # Augmente block_size
         self.fs = fs
         self.block_size = block_size
         self.stream = None
@@ -39,6 +39,10 @@ class AudioStream:
 
         self.input_data = None  # Data for file input
         self.volume = 0.1  # Default volume level
+        
+        self.bistable_init = -self.Xb  # Initial condition for bistable filter
+
+        self.audio_to_save = np.array([])  # Buffer to save audio data
 
 
         self.FILTERS = {
@@ -55,11 +59,13 @@ class AudioStream:
     
     def set_input_method(self, method):
         if method in ['file', 'live', 'jack']:
+            print(f"Setting input method to: {method}")
             self.input_methode = method
         else:
             raise ValueError(f"Input method '{method}' not recognized.")
     
     def set_input_file(self, file_path):
+        print(f"Setting input file to: {file_path}")
         if os.path.isfile(file_path):
             self.input_file_path = file_path
             self.input_data, self.fs = lb.load(file_path, sr=self.fs, mono=True)
@@ -130,7 +136,7 @@ class AudioStream:
                 try:
                     while True:
                         if self.stream_state == 'running':
-                            sd.sleep(1)
+                            sd.sleep(10)
                         else:
                             print("Stream is stopped. Waiting for start command...")
                             self.stream_state = 'stopped'
@@ -148,7 +154,7 @@ class AudioStream:
     def callback(self, indata, outdata, frames, time, status):
         global counter
         #b = np.abs(get_state())*0.3
-        
+
         inputdata = indata if self.input_methode != 'file' else self.input_data[self.data_pos:self.data_pos + self.block_size]
         inputdata = np.resize(inputdata, (self.block_size,))  # Ensure inputdata is the correct size
 
@@ -164,7 +170,11 @@ class AudioStream:
         signal = inputdata + noise
         
         # Filtrage 
-        signal = self.apply_filter(signal,thr=self.threshold, filtre_id=self.filter_id, tau=self.tau, Xb=self.Xb, weellNum=self.weellNum)
+        signal = self.apply_filter(signal,thr=self.threshold, filtre_id=self.filter_id, tau=self.tau, Xb = self.Xb, initial_value=self.bistable_init, weellNum=self.weellNum)
+        self.bistable_init = signal[-1]  # Update initial condition for next block
+        
+        self.audio_to_save = np.concatenate((self.audio_to_save, signal))  # Append to buffer for saving later
+
         '''
         Les parametre de cette fonction sont comune a tous les filtres.
         Vour le module filters
@@ -178,12 +188,21 @@ class AudioStream:
             else:
                 # Avance la position des données pour le prochain bloc
                 self.data_pos += self.block_size
+        
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            audio = audio / max_val  # Normalisation pour éviter la saturation
 
-        outdata[:] = audio/np.max(np.abs(audio))*self.volume
+        
+        outdata[:] = audio*self.volume
         
 
     def stop(self):
-        
+        # save audio to file
+        if self.audio_to_save.size > 0:
+            sf.write("output.wav", self.audio_to_save, self.fs, subtype='PCM_16')
+           
+            self.audio_to_save = np.array([])
         if self.stream is not None:
             self.stream_state = 'stopped'
             self.stream.stop()
